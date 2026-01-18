@@ -176,14 +176,14 @@ echo 'Updating GRUB'
 if [[ $UPDATE_GRUB ]]; then
     eval "$ESCALATION_TOOL" "$UPDATE_GRUB"
 else
-    cat << '    EOF'
+    cat << EOF
     --------------------------------------------------------------------------------
-    Cannot detect your distro, you will need to run `grub-mkconfig` (as root) manually.
+    Cannot detect your distro, you will need to run \`grub-mkconfig\` (as root) manually.
 
     Common ways:
-    - Debian, Ubuntu, Solus and derivatives: `update-grub` or `grub-mkconfig -o /boot/grub/grub.cfg`
-    - RHEL, CentOS, Fedora, SUSE and derivatives: `grub2-mkconfig -o /boot/grub2/grub.cfg`
-    - Arch, Gentoo and derivatives: `grub-mkconfig -o /boot/grub/grub.cfg`
+    - Debian, Ubuntu, Solus and derivatives: \`update-grub\` or \`grub-mkconfig -o /boot/grub/grub.cfg\`
+    - RHEL, CentOS, Fedora, SUSE and derivatives: \`grub2-mkconfig -o /boot/grub2/grub.cfg\`
+    - Arch, Gentoo and derivatives: \`grub-mkconfig -o /boot/grub/grub.cfg\`
     --------------------------------------------------------------------------------
 EOF
 fi
