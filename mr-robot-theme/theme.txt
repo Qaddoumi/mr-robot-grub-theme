@@ -14,9 +14,9 @@ terminal-border: "0"
 
 # Boot menu
 + boot_menu {
-  left = 17%
+  left = 13%
   top = 32%
-  width = 21%
+  width = 30%
   height = 40%
   item_font = "Tomb_Raider Regular 28"
   item_color = "#FFE8E8"
