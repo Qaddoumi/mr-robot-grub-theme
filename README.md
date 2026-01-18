@@ -16,7 +16,7 @@ Supported languages: Chinese (simplified), English, French, German, Italian, Nor
 - Clone this repository
 
   ```
-  git clone https://github.com/johdasgran/mr-robot-theme.git
+  git clone https://github.com/Qaddoumi/mr-robot-grub-theme.git
   ```
 
 - Change directory to the Mr Robot Theme
