@@ -4,7 +4,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 GRUB_THEME='mr-robot-theme'
-INSTALLER_LANG='English'
+# INSTALLER_LANG='English'
 
 # Check dependencies
 INSTALLER_DEPENDENCIES=(
@@ -31,41 +31,39 @@ cd $(mktemp -d)
 # Pre-authorise sudo
 sudo echo
 
-# Select language, optional
-declare -A INSTALLER_LANGS=(
-    [Chinese]=zh_CN
-    [English]=EN
-    [French]=FR
-    [German]=DE
-    [Italian]=IT
-    [Norwegian]=NO
-    [Portuguese]=PT
-    [Russian]=RU
-    [Spanish]=ES
-    [Turkish]=TR
-    [Ukrainian]=UA
-)
+# # Select language, optional
+# declare -A INSTALLER_LANGS=(
+#     [Chinese]=zh_CN
+#     [English]=EN
+#     [French]=FR
+#     [German]=DE
+#     [Italian]=IT
+#     [Norwegian]=NO
+#     [Portuguese]=PT
+#     [Russian]=RU
+#     [Spanish]=ES
+#     [Turkish]=TR
+#     [Ukrainian]=UA
+# )
 
-INSTALLER_LANG_NAMES=($(echo ${!INSTALLER_LANGS[*]} | tr ' ' '\n' | sort -n))
+# INSTALLER_LANG_NAMES=($(echo ${!INSTALLER_LANGS[*]} | tr ' ' '\n' | sort -n))
 
-PS3='Please select language #: '
-select l in "${INSTALLER_LANG_NAMES[@]}"; do
-    if [[ -v INSTALLER_LANGS[$l] ]]; then
-        INSTALLER_LANG=$l
-        break
-    else
-        echo 'No such language, try again'
-    fi
-done < /dev/tty
+# PS3='Please select language #: '
+# select l in "${INSTALLER_LANG_NAMES[@]}"; do
+#     if [[ -v INSTALLER_LANGS[$l] ]]; then
+#         INSTALLER_LANG=$l
+#         break
+#     else
+#         echo 'No such language, try again'
+#     fi
+# done < /dev/tty
+# echo "Selected language: ${INSTALLER_LANG}"
 
-echo 'Fetching and unpacking theme'
-wget -O - https://github.com/johdasgran/${GRUB_THEME}/archive/main.tar.gz | tar -xzf - --strip-components=1
-
-if [[ "$INSTALLER_LANG" != "English" ]]; then
-    echo "Changing language to ${INSTALLER_LANG}"
-    sed -i -r -e '/^\s+# EN$/{n;s/^(\s*)/\1# /}' \
-              -e '/^\s+# '"${INSTALLER_LANGS[$INSTALLER_LANG]}"'$/{n;s/^(\s*)#\s*/\1/}' theme.txt
-fi
+# if [[ "$INSTALLER_LANG" != "English" ]]; then
+#     echo "Changing language to ${INSTALLER_LANG}"
+#     sed -i -r -e '/^\s+# EN$/{n;s/^(\s*)/\1# /}' \
+#               -e '/^\s+# '"${INSTALLER_LANGS[$INSTALLER_LANG]}"'$/{n;s/^(\s*)#\s*/\1/}' theme.txt
+# fi
 
 # Detect distro and set GRUB location and update method
 GRUB_DIR='grub'
