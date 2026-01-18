@@ -3,33 +3,48 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-GRUB_THEME='mr-robot-theme'
+THEME_NAME='mr-robot-theme'
 # INSTALLER_LANG='English'
 
-# Check dependencies
-INSTALLER_DEPENDENCIES=(
-    'mktemp'
-    'sed'
-    'sort'
-    'sudo'
-    'tar'
-    'tee'
-    'tr'
-    'wget'
-)
+# Color codes
+red='\033[0;31m'
+green='\033[0;32m'
+yellow='\033[1;33m'
+blue='\033[0;34m'
+cyan='\033[0;36m'
+bold="\e[1m"
+no_color='\033[0m' # reset the color to default
 
-for i in "${INSTALLER_DEPENDENCIES[@]}"; do
-    command -v $i > /dev/null 2>&1 || {
-        echo >&2 "'$i' command is required, but not available. Aborting.";
-        exit 1;
-    }
-done
+if [ "$EUID" -eq 0 ] || [ "$(id -u)" = "0" ]; then
+	if command -v "eval"; then
+		ESCALATION_TOOL="eval"
+	else
+		ESCALATION_TOOL=""
+	fi
+else
+	for tool in sudo doas pkexec; do
+		if command -v "${tool}" >/dev/null 2>&1; then
+			ESCALATION_TOOL="${tool}"
+			echo -e "${cyan}Using ${tool} for privilege escalation${no_color}"
+			break
+		fi
+	done
 
-# Change to temporary directory
-cd $(mktemp -d)
+	if [ -z "${ESCALATION_TOOL}" ]; then
+		echo -e "${red}Error: This script requires root privileges. Please run as root or install sudo, doas, or pkexec.${no_color}"
+		exit 1
+	fi
+fi
 
-# Pre-authorise sudo
-sudo echo
+backup_file() {
+	local file="$1"
+	if "${ESCALATION_TOOL}" test -f "$file"; then
+		"${ESCALATION_TOOL}" cp -an "$file" "$file.backup.$(date +%Y%m%d_%H%M%S)"
+		echo -e "${green}Backed up $file${no_color}"
+	else
+		echo -e "${yellow}File $file does not exist, skipping backup${no_color}"
+	fi
+}
 
 # # Select language, optional
 # declare -A INSTALLER_LANGS=(
@@ -67,6 +82,7 @@ sudo echo
 
 # Detect distro and set GRUB location and update method
 GRUB_DIR='grub'
+THEME_DIR='/boot/grub/themes'
 UPDATE_GRUB=''
 BOOT_MODE='legacy'
 
@@ -90,12 +106,14 @@ if [[ -e /etc/os-release ]]; then
     elif [[ "$ID" =~ (arch|gentoo) || \
             "$ID_LIKE" =~ (archlinux|gentoo) ]]; then
 
+        THEME_DIR='/boot/grub/themes'
         UPDATE_GRUB='grub-mkconfig -o /boot/grub/grub.cfg'
 
     elif [[ "$ID" =~ (centos|fedora|opensuse) || \
             "$ID_LIKE" =~ (fedora|rhel|suse) ]]; then
 
         GRUB_DIR='grub2'
+        THEME_DIR='/boot/grub2/themes'
         GRUB_CFG='/boot/grub2/grub.cfg'
 
         if [[ "$BOOT_MODE" = "UEFI" ]]; then
@@ -105,40 +123,58 @@ if [[ -e /etc/os-release ]]; then
         UPDATE_GRUB="grub2-mkconfig -o ${GRUB_CFG}"
 
         # BLS etries have 'kernel' class, copy corresponding icon
-        if [[ -d /boot/loader/entries && -e icons/${ID}.png ]]; then
-            cp icons/${ID}.png icons/kernel.png
+        if [[ -d /boot/loader/entries && -e "${THEME_NAME}/icons/${ID}.png" ]]; then
+            cp ${THEME_NAME}/icons/${ID}.png ${THEME_NAME}/icons/kernel.png
         fi
     fi
 fi
 
 echo 'Creating GRUB themes directory'
-sudo mkdir -p /boot/${GRUB_DIR}/themes/${GRUB_THEME}
+"$ESCALATION_TOOL" mkdir -p /boot/${GRUB_DIR}/themes/${THEME_NAME}
 
 echo 'Copying theme to GRUB themes directory'
-sudo cp -r * /boot/${GRUB_DIR}/themes/${GRUB_THEME}
+"$ESCALATION_TOOL" cp -fa ./"${THEME_NAME}"/* /boot/${GRUB_DIR}/themes/${THEME_NAME}
 
-echo 'Removing other themes from GRUB config'
-sudo sed -i '/^GRUB_THEME=/d' /etc/default/grub
+#==========================================================================================
+#==========================================================================================
+echo -e "${green}Enabling grub menu${no_color}"
+# remove default grub style if any
+echo -e "${blue}sed -i '/GRUB_TIMEOUT_STYLE=/d' /etc/default/grub${no_color}"
+"${ESCALATION_TOOL}" sed -i '/GRUB_TIMEOUT_STYLE=/d' /etc/default/grub
 
-echo 'Making sure GRUB uses graphical output'
-sudo sed -i 's/^\(GRUB_TERMINAL\w*=.*\)/#\1/' /etc/default/grub
+# issue #16
+echo -e "${blue}sed -i '/GRUB_TERMINAL_OUTPUT=/d' /etc/default/grub${no_color}"
+"${ESCALATION_TOOL}" sed -i '/GRUB_TERMINAL_OUTPUT=/d' /etc/default/grub
 
-echo 'Removing empty lines at the end of GRUB config' # optional
-sudo sed -i -e :a -e '/^\n*$/{$d;N;};/\n$/ba' /etc/default/grub
+echo -e "${blue}echo 'GRUB_TIMEOUT_STYLE=\"menu\"' | ${ESCALATION_TOOL:-} tee -a /etc/default/grub${no_color}"
+echo 'GRUB_TIMEOUT_STYLE="menu"' | "${ESCALATION_TOOL}" tee -a /etc/default/grub > /dev/null
 
-echo 'Adding new line to GRUB config just in case' # optional
-echo | sudo tee -a /etc/default/grub
+#--------------------------------------------------
 
-echo 'Adding theme to GRUB config'
-echo "GRUB_THEME=/boot/${GRUB_DIR}/themes/${GRUB_THEME}/theme.txt" | sudo tee -a /etc/default/grub
+echo -e "${green}Setting ${THEME_NAME} as default${no_color}"
+# remove theme if any
+echo -e "${blue}sed -i '/GRUB_THEME=/d' /etc/default/grub${no_color}"
+"${ESCALATION_TOOL}" sed -i '/GRUB_THEME=/d' /etc/default/grub
 
-echo 'Removing theme installation files'
-rm -rf "$PWD"
-cd
+echo -e "${blue}echo \"GRUB_THEME=\"${THEME_DIR}/${THEME_NAME}/theme.txt\"\" | ${ESCALATION_TOOL:-} tee -a /etc/default/grub${no_color}"
+echo "GRUB_THEME=\"${THEME_DIR}/${THEME_NAME}/theme.txt\"" | "${ESCALATION_TOOL}" tee -a /etc/default/grub > /dev/null
+
+#--------------------------------------------------
+
+echo -e "${green}Setting grub graphics mode to auto${no_color}"
+# remove default timeout if any
+echo -e "${blue}sed -i '/GRUB_GFXMODE=/d' /etc/default/grub${no_color}"
+"${ESCALATION_TOOL}" sed -i '/GRUB_GFXMODE=/d' /etc/default/grub
+
+echo -e "${blue}echo 'GRUB_GFXMODE=\"auto\"' | ${ESCALATION_TOOL:-} tee -a /etc/default/grub${no_color}"
+echo 'GRUB_GFXMODE="auto"' | "${ESCALATION_TOOL}" tee -a /etc/default/grub > /dev/null
+#==========================================================================================
+#==========================================================================================
+
 
 echo 'Updating GRUB'
 if [[ $UPDATE_GRUB ]]; then
-    eval sudo "$UPDATE_GRUB"
+    eval "$ESCALATION_TOOL" "$UPDATE_GRUB"
 else
     cat << '    EOF'
     --------------------------------------------------------------------------------
@@ -149,5 +185,7 @@ else
     - RHEL, CentOS, Fedora, SUSE and derivatives: `grub2-mkconfig -o /boot/grub2/grub.cfg`
     - Arch, Gentoo and derivatives: `grub-mkconfig -o /boot/grub/grub.cfg`
     --------------------------------------------------------------------------------
-    EOF
+EOF
 fi
+
+echo -e "${green}Boot Theme Update Completed!${no_color}"
